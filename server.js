@@ -37,7 +37,7 @@ app.use('/api', limiter);
 
 // CORS
 app.use(cors({
-  origin: ['http://localhost:5173', 'https://exam-conducted-platform.netlify.app'],
+  origin: ['http://localhost:5173', 'https://exam-conducted-platform.netlify.app', 'https://online-exam-platform-frontend-zerv.vercel.app'],
   credentials: true,
 }));
 
