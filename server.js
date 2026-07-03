@@ -25,22 +25,22 @@ app.use(helmet({
   crossOriginEmbedderPolicy: false,
 }));
 
+// CORS (Must be before rate limiter so 429 errors get CORS headers)
+app.use(cors({
+  origin: ['http://localhost:5173', 'https://exam-conducted-platform.netlify.app', 'https://online-exam-platform-frontend-zerv.vercel.app'],
+  credentials: true,
+}));
+
 // Rate limiting
 const limiter = rateLimit({
   windowMs: 15 * 60 * 1000, // 15 minutes
-  max: 100,
+  max: 1000, // Increased from 100 to 1000 to prevent false positives during active dev
   message: 'Too many requests from this IP, please try again later.',
   standardHeaders: true,
   legacyHeaders: false,
 });
 
 app.use('/api', limiter);
-
-// CORS
-app.use(cors({
-  origin: ['http://localhost:5173', 'https://exam-conducted-platform.netlify.app', 'https://online-exam-platform-frontend-zerv.vercel.app'],
-  credentials: true,
-}));
 
 // Body parser
 app.use(express.json({ limit: '50mb' }));
