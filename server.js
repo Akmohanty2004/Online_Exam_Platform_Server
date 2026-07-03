@@ -1,3 +1,4 @@
+process.env.TZ = 'Asia/Kolkata'; // Force IST timezone for all Date operations
 const express = require('express');
 const mongoose = require('mongoose');
 const cors = require('cors');
