@@ -64,19 +64,19 @@ router.post('/upload-profile-image',
         return res.status(400).json({ message: 'No image uploaded' });
       }
 
-      // Get the file path (works for both local and cloudinary)
-      const imageUrl = req.file.secure_url || `/uploads/${req.file.filename}`;
+      // Convert buffer to Base64 string
+      const base64Image = `data:${req.file.mimetype};base64,${req.file.buffer.toString('base64')}`;
 
       const user = await User.findByIdAndUpdate(
         req.userId,
-        { profileImage: imageUrl },
+        { profileImage: base64Image },
         { new: true }
       ).select('-password -refreshToken -resetPasswordToken -resetPasswordExpire');
 
       res.json({
         message: 'Profile image uploaded successfully',
         user,
-        imageUrl: imageUrl
+        imageUrl: base64Image
       });
     } catch (error) {
       console.error('Upload profile image error:', error);
@@ -158,36 +158,6 @@ router.get('/:userId', authMiddleware, async (req, res) => {
     res.status(500).json({ message: 'Failed to get user' });
   }
 });
-// Upload profile image
-router.post('/upload-profile-image', 
-  authMiddleware,
-  uploadProfileImage,
-  handleUploadError,
-  async (req, res) => {
-    try {
-      if (!req.file) {
-        return res.status(400).json({ message: 'No image uploaded' });
-      }
 
-      // For Cloudinary
-      const imageUrl = req.file.secure_url || `/uploads/${req.file.filename}`;
-
-      const user = await User.findByIdAndUpdate(
-        req.userId,
-        { profileImage: imageUrl },
-        { new: true }
-      ).select('-password -refreshToken');
-
-      res.json({
-        message: 'Profile image uploaded successfully',
-        user,
-        imageUrl: imageUrl
-      });
-    } catch (error) {
-      console.error('Upload profile image error:', error);
-      res.status(500).json({ message: 'Failed to upload profile image' });
-    }
-  }
-);
 
 module.exports = router;

@@ -47,9 +47,12 @@ const uploadMultiple = multer({
   }
 }).array('images', 10);
 
+// Memory storage for profile images (to save as base64 in MongoDB)
+const memoryStorage = multer.memoryStorage();
+
 // Multer configuration for profile image
 const uploadProfileImage = multer({
-  storage: storage,
+  storage: memoryStorage,
   fileFilter: fileFilter,
   limits: {
     fileSize: 2 * 1024 * 1024 // 2MB limit
