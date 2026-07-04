@@ -27,7 +27,15 @@ app.use(helmet({
 
 // CORS (Must be before rate limiter so 429 errors get CORS headers)
 app.use(cors({
-  origin: ['http://localhost:5173', 'https://exam-conducted-platform.netlify.app', 'https://online-exam-platform-frontend-zerv.vercel.app'],
+  origin: function(origin, callback) {
+    if (!origin) return callback(null, true);
+    const allowedOrigins = ['http://localhost:5173'];
+    if (allowedOrigins.indexOf(origin) !== -1 || origin.endsWith('.vercel.app') || origin.endsWith('.netlify.app')) {
+      callback(null, true);
+    } else {
+      callback(new Error('Not allowed by CORS'));
+    }
+  },
   credentials: true,
 }));
 
