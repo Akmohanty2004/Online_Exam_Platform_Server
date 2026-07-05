@@ -42,28 +42,49 @@ router.post('/register',
         college,
         gender,
         age,
-        address
+        address,
+        isVerified: false
       });
+
+      // Generate OTP
+      const otp = Math.floor(100000 + Math.random() * 900000).toString();
+      user.otp = otp;
+      user.otpExpire = Date.now() + 10 * 60 * 1000; // 10 minutes
 
       await user.save();
 
-      // Generate token
-      const token = jwt.sign(
-        { id: user._id, role: user.role },
-        process.env.JWT_SECRET,
-        { expiresIn: process.env.JWT_EXPIRE || '7d' }
-      );
+      // Send OTP Email
+      const nodemailer = require('nodemailer');
+      const transporter = nodemailer.createTransport({
+        service: 'gmail',
+        auth: {
+          user: process.env.EMAIL_USER,
+          pass: process.env.EMAIL_PASSWORD
+        }
+      });
+
+      const mailOptions = {
+        from: process.env.EMAIL_USER,
+        to: user.email,
+        subject: 'Verify your email - Online Exam Platform',
+        html: `
+          <h1>Email Verification</h1>
+          <p>Your OTP for registration is: <strong>${otp}</strong></p>
+          <p>This OTP will expire in 10 minutes.</p>
+        `
+      };
+
+      try {
+        await transporter.sendMail(mailOptions);
+      } catch (err) {
+        console.error('Failed to send registration OTP email', err);
+      }
 
       res.status(201).json({
-        message: 'User registered successfully',
-        token,
-        user: {
-          id: user._id,
-          name: user.name,
-          email: user.email,
-          role: user.role,
-          profileImage: user.profileImage
-        }
+        message: 'OTP sent to your email',
+        requireOtp: true,
+        email: user.email,
+        type: 'register'
       });
     } catch (error) {
       console.error('Registration error:', error);
@@ -143,6 +164,83 @@ router.post('/login',
         return res.status(401).json({ message: 'Invalid password' });
       }
 
+      // Generate OTP
+      const otp = Math.floor(100000 + Math.random() * 900000).toString();
+      user.otp = otp;
+      user.otpExpire = Date.now() + 10 * 60 * 1000; // 10 minutes
+      await user.save();
+
+      // Send OTP Email
+      const nodemailer = require('nodemailer');
+      const transporter = nodemailer.createTransport({
+        service: 'gmail',
+        auth: {
+          user: process.env.EMAIL_USER,
+          pass: process.env.EMAIL_PASSWORD
+        }
+      });
+
+      const mailOptions = {
+        from: process.env.EMAIL_USER,
+        to: user.email,
+        subject: 'Login OTP - Online Exam Platform',
+        html: `
+          <h1>Login Verification</h1>
+          <p>Your OTP for login is: <strong>${otp}</strong></p>
+          <p>This OTP will expire in 10 minutes.</p>
+        `
+      };
+
+      try {
+        await transporter.sendMail(mailOptions);
+      } catch (err) {
+        console.error('Failed to send login OTP email', err);
+      }
+
+      res.json({
+        message: 'OTP sent to your email',
+        requireOtp: true,
+        email: user.email,
+        type: 'login'
+      });
+    } catch (error) {
+      console.error('Login error:', error);
+      res.status(500).json({ message: 'Login failed' });
+    }
+  }
+);
+
+// Verify OTP
+router.post('/verify-otp',
+  validate([
+    commonValidations.email,
+    body('otp').notEmpty().withMessage('OTP is required'),
+    body('type').isIn(['login', 'register']).withMessage('Invalid type')
+  ]),
+  async (req, res) => {
+    try {
+      const { email, otp, type } = req.body;
+      const user = await User.findOne({ email });
+
+      if (!user) {
+        return res.status(404).json({ message: 'User not found' });
+      }
+
+      if (user.otp !== otp || user.otpExpire < Date.now()) {
+        return res.status(400).json({ message: 'Invalid or expired OTP' });
+      }
+
+      // Mark as verified
+      if (type === 'register') {
+        user.isVerified = true;
+      }
+
+      // Clear OTP
+      user.otp = undefined;
+      user.otpExpire = undefined;
+      user.lastLogin = new Date();
+      await user.save();
+
       // Generate token
       const token = jwt.sign(
         { id: user._id, role: user.role },
@@ -150,12 +248,8 @@ router.post('/login',
         { expiresIn: process.env.JWT_EXPIRE || '7d' }
       );
 
-      // Update last login
-      user.lastLogin = new Date();
-      await user.save();
-
       res.json({
-        message: 'Login successful',
+        message: 'OTP verified successfully',
         token,
         user: {
           id: user._id,
@@ -172,8 +266,8 @@ router.post('/login',
         }
       });
     } catch (error) {
-      console.error('Login error:', error);
-      res.status(500).json({ message: 'Login failed' });
+      console.error('Verify OTP error:', error);
+      res.status(500).json({ message: 'Failed to verify OTP' });
     }
   }
 );
@@ -208,14 +302,40 @@ router.post('/forgot-password',
       await user.save();
 
       // Send email with reset link
-      const resetUrl = `${process.env.FRONTEND_URL}/reset-password/${resetToken}`;
+      const resetUrl = `${process.env.FRONTEND_URL || 'https://online-exam-platform-frontend-zerv-r0ty1ylcn-try-best.vercel.app'}/reset-password/${resetToken}`;
       
-      // TODO: Send email using nodemailer
-      // For now, just return the token
-      res.json({
-        message: 'Password reset email sent',
-        resetToken // In production, don't send this in response
+      const nodemailer = require('nodemailer');
+      const transporter = nodemailer.createTransport({
+        service: 'gmail',
+        auth: {
+          user: process.env.EMAIL_USER,
+          pass: process.env.EMAIL_PASSWORD
+        }
       });
+
+      const mailOptions = {
+        from: process.env.EMAIL_USER,
+        to: user.email,
+        subject: 'Password Reset Request',
+        html: `
+          <h1>You requested a password reset</h1>
+          <p>Please click on the following link to reset your password:</p>
+          <a href="${resetUrl}">${resetUrl}</a>
+          <p>If you did not request this, please ignore this email.</p>
+        `
+      };
+
+      try {
+        await transporter.sendMail(mailOptions);
+        res.json({ message: 'Password reset email sent' });
+      } catch (emailError) {
+        console.error('Email sending error:', emailError);
+        // Fallback for development if email fails
+        res.json({ 
+          message: 'Email failed to send. Dev fallback: use this link',
+          resetToken
+        });
+      }
     } catch (error) {
       console.error('Forgot password error:', error);
       res.status(500).json({ message: 'Failed to process request' });

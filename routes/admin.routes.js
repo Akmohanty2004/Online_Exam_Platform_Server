@@ -86,6 +86,10 @@ router.get('/dashboard-stats',
       ]);
       
       const memoryUsage = Math.round((process.memoryUsage().heapUsed / process.memoryUsage().heapTotal) * 100);
+      
+      const oneDayAgo = new Date();
+      oneDayAgo.setDate(oneDayAgo.getDate() - 1);
+      const activeUsers = await User.countDocuments({ lastLogin: { $gte: oneDayAgo } });
 
       res.json({
         stats: {
@@ -105,7 +109,7 @@ router.get('/dashboard-stats',
         monthlyExams,
         monthlyResults,
         memoryUsage,
-        activeUsers: Math.floor(Math.random() * 20) + 5 // Simulating active users for now
+        activeUsers
       });
     } catch (error) {
       console.error('Admin dashboard stats error:', error);
