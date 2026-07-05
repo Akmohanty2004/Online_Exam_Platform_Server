@@ -79,10 +79,15 @@ router.post('/register',
         `
       };
 
-      // Send OTP Email asynchronously to prevent hanging the response
-      transporter.sendMail(mailOptions).catch(err => {
+      try {
+        await Promise.race([
+          transporter.sendMail(mailOptions),
+          new Promise((_, reject) => setTimeout(() => reject(new Error('SMTP timeout')), 8000))
+        ]);
+      } catch (err) {
         console.error('Failed to send registration OTP email', err);
-      });
+        return res.status(500).json({ message: 'Failed to send OTP email: ' + (err.response || err.message) });
+      }
 
       res.status(201).json({
         message: 'OTP sent to your email',
@@ -188,10 +193,15 @@ router.post('/login',
         `
       };
 
-      // Send OTP Email asynchronously to prevent hanging the response
-      transporter.sendMail(mailOptions).catch(err => {
+      try {
+        await Promise.race([
+          transporter.sendMail(mailOptions),
+          new Promise((_, reject) => setTimeout(() => reject(new Error('SMTP timeout')), 8000))
+        ]);
+      } catch (err) {
         console.error('Failed to send login OTP email', err);
-      });
+        return res.status(500).json({ message: 'Failed to send OTP email: ' + (err.response || err.message) });
+      }
 
       res.json({
         message: 'OTP sent to your email',
