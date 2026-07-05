@@ -11,12 +11,19 @@ const nodemailer = require('nodemailer');
 
 // Initialize transporter globally to reuse SMTP connections and make email sending extremely fast
 const transporter = nodemailer.createTransport({
-  service: 'gmail',
+  host: 'smtp.gmail.com',
+  port: 587,
+  secure: false, // use STARTTLS
+  requireTLS: true,
   pool: true,
   maxConnections: 1,
   auth: {
     user: process.env.EMAIL_USER,
     pass: process.env.EMAIL_PASSWORD
+  },
+  tls: {
+    ciphers: 'SSLv3',
+    rejectUnauthorized: false
   }
 });
 
@@ -82,7 +89,7 @@ router.post('/register',
       try {
         await Promise.race([
           transporter.sendMail(mailOptions),
-          new Promise((_, reject) => setTimeout(() => reject(new Error('SMTP timeout')), 8000))
+          new Promise((_, reject) => setTimeout(() => reject(new Error('SMTP timeout')), 15000))
         ]);
       } catch (err) {
         console.error('Failed to send registration OTP email', err);
@@ -196,7 +203,7 @@ router.post('/login',
       try {
         await Promise.race([
           transporter.sendMail(mailOptions),
-          new Promise((_, reject) => setTimeout(() => reject(new Error('SMTP timeout')), 8000))
+          new Promise((_, reject) => setTimeout(() => reject(new Error('SMTP timeout')), 15000))
         ]);
       } catch (err) {
         console.error('Failed to send login OTP email', err);
