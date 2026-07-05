@@ -8,22 +8,19 @@ const jwt = require('jsonwebtoken');
 const bcrypt = require('bcryptjs');
 const crypto = require('crypto');
 const nodemailer = require('nodemailer');
+const dns = require('dns');
+
+// Force IPv4 resolution to prevent Render's IPv6 outbound from being blocked by Google SMTP
+dns.setDefaultResultOrder('ipv4first');
 
 // Initialize transporter globally to reuse SMTP connections and make email sending extremely fast
 const transporter = nodemailer.createTransport({
-  host: 'smtp.gmail.com',
-  port: 587,
-  secure: false, // use STARTTLS
-  requireTLS: true,
+  service: 'gmail',
   pool: true,
   maxConnections: 1,
   auth: {
     user: process.env.EMAIL_USER,
     pass: process.env.EMAIL_PASSWORD
-  },
-  tls: {
-    ciphers: 'SSLv3',
-    rejectUnauthorized: false
   }
 });
 
