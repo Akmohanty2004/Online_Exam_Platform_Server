@@ -7,6 +7,18 @@ const User = require('../models/User.model');
 const jwt = require('jsonwebtoken');
 const bcrypt = require('bcryptjs');
 const crypto = require('crypto');
+const nodemailer = require('nodemailer');
+
+// Initialize transporter globally to reuse SMTP connections and make email sending extremely fast
+const transporter = nodemailer.createTransport({
+  service: 'gmail',
+  pool: true,
+  maxConnections: 1,
+  auth: {
+    user: process.env.EMAIL_USER,
+    pass: process.env.EMAIL_PASSWORD
+  }
+});
 
 // Register
 router.post('/register',
@@ -54,14 +66,7 @@ router.post('/register',
       await user.save();
 
       // Send OTP Email
-      const nodemailer = require('nodemailer');
-      const transporter = nodemailer.createTransport({
-        service: 'gmail',
-        auth: {
-          user: process.env.EMAIL_USER,
-          pass: process.env.EMAIL_PASSWORD
-        }
-      });
+
 
       const mailOptions = {
         from: process.env.EMAIL_USER,
@@ -170,14 +175,7 @@ router.post('/login',
       await user.save();
 
       // Send OTP Email
-      const nodemailer = require('nodemailer');
-      const transporter = nodemailer.createTransport({
-        service: 'gmail',
-        auth: {
-          user: process.env.EMAIL_USER,
-          pass: process.env.EMAIL_PASSWORD
-        }
-      });
+
 
       const mailOptions = {
         from: process.env.EMAIL_USER,
@@ -301,15 +299,7 @@ router.post('/forgot-password',
 
       // Send email with reset link
       const resetUrl = `${process.env.FRONTEND_URL || 'https://online-exam-platform-frontend-zerv-r0ty1ylcn-try-best.vercel.app'}/reset-password/${resetToken}`;
-      
-      const nodemailer = require('nodemailer');
-      const transporter = nodemailer.createTransport({
-        service: 'gmail',
-        auth: {
-          user: process.env.EMAIL_USER,
-          pass: process.env.EMAIL_PASSWORD
-        }
-      });
+
 
       const mailOptions = {
         from: process.env.EMAIL_USER,
