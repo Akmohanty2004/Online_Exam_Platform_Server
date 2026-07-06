@@ -4,11 +4,16 @@ const { body } = require('express-validator');
 const { validate, commonValidations } = require('../middleware/validation.middleware');
 const { authMiddleware } = require('../middleware/auth.middleware');
 const User = require('../models/User.model');
+const OTP = require('../models/OTP.model');
+const sendEmail = require('../utils/sendEmail');
 const jwt = require('jsonwebtoken');
 const bcrypt = require('bcryptjs');
 const crypto = require('crypto');
 
-// Register
+// Generate 6-digit OTP
+const generateOTP = () => Math.floor(100000 + Math.random() * 900000).toString();
+
+// Register Request (Sends OTP)
 router.post('/register',
   validate([
     commonValidations.name,
@@ -23,9 +28,56 @@ router.post('/register',
   ]),
   async (req, res) => {
     try {
-      const { name, email, password, role, phone, department, college, gender, age, address } = req.body;
+      const { email } = req.body;
 
-      // Check if user exists
+      // Check if user already exists
+      const existingUser = await User.findOne({ email });
+      if (existingUser) {
+        return res.status(400).json({ message: 'User already exists with this email' });
+      }
+
+      // Generate OTP
+      const otp = generateOTP();
+
+      // Save OTP to database (upsert to prevent multiple valid OTPs)
+      await OTP.findOneAndUpdate(
+        { email },
+        { otp, createdAt: Date.now() },
+        { upsert: true, new: true }
+      );
+
+      // Send Email
+      try {
+        await sendEmail({
+          email,
+          subject: 'ExamHub - Registration OTP',
+          message: `<h1>Your Registration OTP</h1><p>Your one-time password for registration is: <strong>${otp}</strong></p><p>This code expires in 10 minutes.</p>`
+        });
+        res.status(200).json({ message: 'OTP sent to your email successfully', isOtpSent: true });
+      } catch (emailError) {
+        console.error('Email error:', emailError);
+        return res.status(500).json({ message: 'Failed to send OTP email. Please ensure EMAIL_USER and EMAIL_PASSWORD are set.' });
+      }
+    } catch (error) {
+      console.error('Registration error:', error);
+      res.status(500).json({ message: 'Registration failed' });
+    }
+  }
+);
+
+// Register Verify (Verifies OTP and Creates User)
+router.post('/verify-register',
+  async (req, res) => {
+    try {
+      const { name, email, password, role, phone, department, college, gender, age, address, otp } = req.body;
+
+      // Check OTP
+      const otpRecord = await OTP.findOne({ email, otp });
+      if (!otpRecord) {
+        return res.status(400).json({ message: 'Invalid or expired OTP' });
+      }
+
+      // Check if user exists again just in case
       const existingUser = await User.findOne({ email });
       if (existingUser) {
         return res.status(400).json({ message: 'User already exists with this email' });
@@ -46,6 +98,7 @@ router.post('/register',
       });
 
       await user.save();
+      await OTP.deleteOne({ email }); // Delete OTP after successful use
 
       // Generate token
       const token = jwt.sign(
@@ -66,13 +119,13 @@ router.post('/register',
         }
       });
     } catch (error) {
-      console.error('Registration error:', error);
-      res.status(500).json({ message: 'Registration failed' });
+      console.error('Verify registration error:', error);
+      res.status(500).json({ message: 'Verification failed' });
     }
   }
 );
 
-// Login
+// Login Request (Validates Credentials and Sends OTP)
 router.post('/login',
   validate([
     commonValidations.email,
@@ -88,12 +141,72 @@ router.post('/login',
         if (email !== process.env.ADMIN_EMAIL || password !== process.env.ADMIN_PASSWORD) {
           return res.status(401).json({ message: 'Invalid admin credentials' });
         }
+      } else {
+        // Check user
+        const user = await User.findOne({ email, role });
+        if (!user) {
+          return res.status(401).json({ message: `No ${role} found with this email` });
+        }
+        if (!user.isActive) {
+          return res.status(401).json({ message: 'Account is deactivated' });
+        }
+        // Verify password
+        const isPasswordValid = await user.comparePassword(password);
+        if (!isPasswordValid) {
+          return res.status(401).json({ message: 'Invalid password' });
+        }
+      }
 
-        // Check if admin exists in database
+      // Generate OTP
+      const otp = generateOTP();
+
+      // Save OTP to database
+      await OTP.findOneAndUpdate(
+        { email },
+        { otp, createdAt: Date.now() },
+        { upsert: true, new: true }
+      );
+
+      // Send Email
+      try {
+        await sendEmail({
+          email,
+          subject: 'ExamHub - Login OTP',
+          message: `<h1>Your Login OTP</h1><p>Your one-time password for login is: <strong>${otp}</strong></p><p>This code expires in 10 minutes.</p>`
+        });
+        res.status(200).json({ message: 'OTP sent to your email successfully', isOtpSent: true });
+      } catch (emailError) {
+        console.error('Email error:', emailError);
+        return res.status(500).json({ message: 'Failed to send OTP email. Please ensure EMAIL_USER and EMAIL_PASSWORD are set.' });
+      }
+    } catch (error) {
+      console.error('Login error:', error);
+      res.status(500).json({ message: 'Login failed' });
+    }
+  }
+);
+
+// Login Verify (Verifies OTP and returns JWT)
+router.post('/verify-login',
+  async (req, res) => {
+    try {
+      const { email, password, role, otp } = req.body;
+
+      // Check OTP
+      const otpRecord = await OTP.findOne({ email, otp });
+      if (!otpRecord) {
+        return res.status(400).json({ message: 'Invalid or expired OTP' });
+      }
+
+      let userToReturn;
+      let token;
+
+      if (role === 'admin') {
+        if (email !== process.env.ADMIN_EMAIL || password !== process.env.ADMIN_PASSWORD) {
+          return res.status(401).json({ message: 'Invalid admin credentials' });
+        }
         let admin = await User.findOne({ email, role: 'admin' });
-        
         if (!admin) {
-          // Create admin if doesn't exist
           admin = new User({
             name: process.env.ADMIN_USERNAME || 'Admin',
             email: process.env.ADMIN_EMAIL,
@@ -103,77 +216,34 @@ router.post('/login',
           });
           await admin.save();
         }
-
-        const token = jwt.sign(
-          { id: admin._id, role: 'admin' },
-          process.env.JWT_SECRET,
-          { expiresIn: process.env.JWT_EXPIRE || '7d' }
-        );
-
-        // Update last login
+        token = jwt.sign({ id: admin._id, role: 'admin' }, process.env.JWT_SECRET, { expiresIn: process.env.JWT_EXPIRE || '7d' });
         admin.lastLogin = new Date();
         await admin.save();
-
-        return res.json({
-          message: 'Admin login successful',
-          token,
-          user: {
-            id: admin._id,
-            name: admin.name,
-            email: admin.email,
-            role: 'admin',
-            profileImage: admin.profileImage
-          }
-        });
+        userToReturn = { id: admin._id, name: admin.name, email: admin.email, role: 'admin', profileImage: admin.profileImage };
+      } else {
+        const user = await User.findOne({ email, role });
+        if (!user || !user.isActive || !(await user.comparePassword(password))) {
+          return res.status(401).json({ message: 'Invalid credentials' });
+        }
+        token = jwt.sign({ id: user._id, role: user.role }, process.env.JWT_SECRET, { expiresIn: process.env.JWT_EXPIRE || '7d' });
+        user.lastLogin = new Date();
+        await user.save();
+        userToReturn = {
+          id: user._id, name: user.name, email: user.email, role: user.role, profileImage: user.profileImage,
+          department: user.department, college: user.college, phone: user.phone, age: user.age, gender: user.gender, address: user.address
+        };
       }
 
-      // Check user
-      const user = await User.findOne({ email, role });
-      if (!user) {
-        return res.status(401).json({ message: `No ${role} found with this email` });
-      }
-
-      if (!user.isActive) {
-        return res.status(401).json({ message: 'Account is deactivated' });
-      }
-
-      // Verify password
-      const isPasswordValid = await user.comparePassword(password);
-      if (!isPasswordValid) {
-        return res.status(401).json({ message: 'Invalid password' });
-      }
-
-      // Generate token
-      const token = jwt.sign(
-        { id: user._id, role: user.role },
-        process.env.JWT_SECRET,
-        { expiresIn: process.env.JWT_EXPIRE || '7d' }
-      );
-
-      // Update last login
-      user.lastLogin = new Date();
-      await user.save();
+      await OTP.deleteOne({ email }); // Delete OTP after successful use
 
       res.json({
         message: 'Login successful',
         token,
-        user: {
-          id: user._id,
-          name: user.name,
-          email: user.email,
-          role: user.role,
-          profileImage: user.profileImage,
-          department: user.department,
-          college: user.college,
-          phone: user.phone,
-          age: user.age,
-          gender: user.gender,
-          address: user.address
-        }
+        user: userToReturn
       });
     } catch (error) {
-      console.error('Login error:', error);
-      res.status(500).json({ message: 'Login failed' });
+      console.error('Verify login error:', error);
+      res.status(500).json({ message: 'Login verification failed' });
     }
   }
 );
@@ -210,12 +280,17 @@ router.post('/forgot-password',
       // Send email with reset link
       const resetUrl = `${process.env.FRONTEND_URL}/reset-password/${resetToken}`;
       
-      // TODO: Send email using nodemailer
-      // For now, just return the token
-      res.json({
-        message: 'Password reset email sent',
-        resetToken // In production, don't send this in response
-      });
+      try {
+        await sendEmail({
+          email,
+          subject: 'ExamHub - Password Reset',
+          message: `<h1>Password Reset</h1><p>You requested a password reset. Please click the link below to reset your password:</p><a href="${resetUrl}">${resetUrl}</a><p>This link expires in 15 minutes.</p>`
+        });
+        res.json({ message: 'Password reset email sent' });
+      } catch (emailError) {
+        console.error('Email error:', emailError);
+        return res.status(500).json({ message: 'Failed to send password reset email. Please ensure EMAIL_USER and EMAIL_PASSWORD are set.' });
+      }
     } catch (error) {
       console.error('Forgot password error:', error);
       res.status(500).json({ message: 'Failed to process request' });
