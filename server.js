@@ -6,7 +6,11 @@ const helmet = require('helmet');
 const morgan = require('morgan');
 const rateLimit = require('express-rate-limit');
 const path = require('path');
+const dns = require('dns');
 require('dotenv').config();
+
+// Force IPv4 resolution to prevent serverless IPv6 outbound timeouts (MongoDB Atlas & SMTP)
+dns.setDefaultResultOrder('ipv4first');
 
 // Import routes
 const authRoutes = require('./routes/auth.routes');
