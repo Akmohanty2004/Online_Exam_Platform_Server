@@ -13,6 +13,40 @@ const crypto = require('crypto');
 // Generate 6-digit OTP
 const generateOTP = () => Math.floor(100000 + Math.random() * 900000).toString();
 
+// Email Template Generator
+const getEmailTemplate = (otp, type) => `
+<div style="font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; background-color: #f4f7fb; padding: 40px 0; margin: 0;">
+  <div style="max-width: 600px; margin: 0 auto; background-color: #ffffff; border-radius: 12px; box-shadow: 0 8px 20px rgba(0,0,0,0.05); overflow: hidden;">
+    <div style="background: linear-gradient(135deg, #3b82f6, #1d4ed8); padding: 30px; text-align: center;">
+      <h1 style="color: #ffffff; margin: 0; font-size: 28px; font-weight: 700; letter-spacing: 1px;">ExamHub</h1>
+    </div>
+    <div style="padding: 40px 30px;">
+      <h2 style="color: #1e293b; margin-top: 0; font-size: 24px; font-weight: 600;">Your ${type} OTP</h2>
+      <p style="color: #64748b; font-size: 16px; line-height: 1.6; margin-bottom: 30px;">
+        Hello!<br>
+        You've requested an OTP for ${type.toLowerCase()}. Please use the verification code below to proceed.
+      </p>
+      
+      <div style="background-color: #f8fafc; border: 1px solid #e2e8f0; border-radius: 12px; padding: 25px; text-align: center; margin-bottom: 30px;">
+        <span style="font-family: monospace; font-size: 36px; font-weight: 800; letter-spacing: 8px; color: #3b82f6;">${otp}</span>
+      </div>
+      
+      <p style="color: #64748b; font-size: 15px; margin-bottom: 20px;">
+        <strong style="color: #ef4444;">Note:</strong> This code is valid for <strong>10 minutes</strong>. Do not share this code with anyone.
+      </p>
+      <p style="color: #64748b; font-size: 15px; margin-bottom: 0;">
+        If you didn't request this code, you can safely ignore this email.
+      </p>
+    </div>
+    <div style="background-color: #f8fafc; padding: 20px 30px; text-align: center; border-top: 1px solid #e2e8f0;">
+      <p style="color: #94a3b8; font-size: 14px; margin: 0;">
+        &copy; ${new Date().getFullYear()} ExamHub. All rights reserved.
+      </p>
+    </div>
+  </div>
+</div>
+`;
+
 // Register Request (Sends OTP)
 router.post('/register',
   validate([
@@ -51,7 +85,7 @@ router.post('/register',
         await sendEmail({
           email,
           subject: 'ExamHub - Registration OTP',
-          message: `<h1>Your Registration OTP</h1><p>Your one-time password for registration is: <strong>${otp}</strong></p><p>This code expires in 10 minutes.</p>`
+          message: getEmailTemplate(otp, 'Registration')
         });
         res.status(200).json({ message: 'OTP sent to your email successfully', isOtpSent: true });
       } catch (emailError) {
@@ -172,7 +206,7 @@ router.post('/login',
         await sendEmail({
           email,
           subject: 'ExamHub - Login OTP',
-          message: `<h1>Your Login OTP</h1><p>Your one-time password for login is: <strong>${otp}</strong></p><p>This code expires in 10 minutes.</p>`
+          message: getEmailTemplate(otp, 'Login')
         });
         res.status(200).json({ message: 'OTP sent to your email successfully', isOtpSent: true });
       } catch (emailError) {
