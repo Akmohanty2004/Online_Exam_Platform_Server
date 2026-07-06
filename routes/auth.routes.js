@@ -15,36 +15,71 @@ const generateOTP = () => Math.floor(100000 + Math.random() * 900000).toString()
 
 // Email Template Generator
 const getEmailTemplate = (otp, type) => `
-<div style="font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; background-color: #f4f7fb; padding: 40px 0; margin: 0;">
-  <div style="max-width: 600px; margin: 0 auto; background-color: #ffffff; border-radius: 12px; box-shadow: 0 8px 20px rgba(0,0,0,0.05); overflow: hidden;">
-    <div style="background: linear-gradient(135deg, #3b82f6, #1d4ed8); padding: 30px; text-align: center;">
-      <h1 style="color: #ffffff; margin: 0; font-size: 28px; font-weight: 700; letter-spacing: 1px;">ExamHub</h1>
-    </div>
-    <div style="padding: 40px 30px;">
-      <h2 style="color: #1e293b; margin-top: 0; font-size: 24px; font-weight: 600;">Your ${type} OTP</h2>
-      <p style="color: #64748b; font-size: 16px; line-height: 1.6; margin-bottom: 30px;">
-        Hello!<br>
-        You've requested an OTP for ${type.toLowerCase()}. Please use the verification code below to proceed.
-      </p>
-      
-      <div style="background-color: #f8fafc; border: 1px solid #e2e8f0; border-radius: 12px; padding: 25px; text-align: center; margin-bottom: 30px;">
-        <span style="font-family: monospace; font-size: 36px; font-weight: 800; letter-spacing: 8px; color: #3b82f6;">${otp}</span>
-      </div>
-      
-      <p style="color: #64748b; font-size: 15px; margin-bottom: 20px;">
-        <strong style="color: #ef4444;">Note:</strong> This code is valid for <strong>10 minutes</strong>. Do not share this code with anyone.
-      </p>
-      <p style="color: #64748b; font-size: 15px; margin-bottom: 0;">
-        If you didn't request this code, you can safely ignore this email.
-      </p>
-    </div>
-    <div style="background-color: #f8fafc; padding: 20px 30px; text-align: center; border-top: 1px solid #e2e8f0;">
-      <p style="color: #94a3b8; font-size: 14px; margin: 0;">
-        &copy; ${new Date().getFullYear()} ExamHub. All rights reserved.
-      </p>
-    </div>
-  </div>
-</div>
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>ExamHub OTP</title>
+</head>
+<body style="margin: 0; padding: 0; font-family: 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; background-color: #f3f4f6; color: #1f2937;">
+  <table width="100%" cellpadding="0" cellspacing="0" role="presentation" style="background-color: #f3f4f6; padding: 40px 20px;">
+    <tr>
+      <td align="center">
+        <table width="100%" cellpadding="0" cellspacing="0" role="presentation" style="max-width: 600px; background-color: #ffffff; border-radius: 16px; box-shadow: 0 10px 25px rgba(0, 0, 0, 0.05); overflow: hidden;">
+          <!-- Header -->
+          <tr>
+            <td style="background: linear-gradient(135deg, #4f46e5, #3b82f6); padding: 40px 30px; text-align: center;">
+              <h1 style="color: #ffffff; margin: 0; font-size: 32px; font-weight: 800; letter-spacing: 1px;">ExamHub</h1>
+              <p style="color: #e0e7ff; margin: 10px 0 0 0; font-size: 16px; font-weight: 500;">Secure Authentication</p>
+            </td>
+          </tr>
+          <!-- Body -->
+          <tr>
+            <td style="padding: 40px 30px;">
+              <h2 style="margin: 0 0 20px 0; font-size: 24px; font-weight: 700; color: #111827;">Action Required: ${type}</h2>
+              <p style="margin: 0 0 24px 0; font-size: 16px; line-height: 1.6; color: #4b5563;">
+                Hello there,<br><br>
+                We received a request to <strong>${type.toLowerCase()}</strong> to your ExamHub account. Please use the following One-Time Password (OTP) to complete this process securely.
+              </p>
+              <!-- OTP Box -->
+              <table width="100%" cellpadding="0" cellspacing="0" role="presentation">
+                <tr>
+                  <td align="center">
+                    <div style="background: linear-gradient(135deg, #f8fafc, #f1f5f9); border: 2px dashed #cbd5e1; border-radius: 12px; padding: 24px 40px; display: inline-block; margin-bottom: 30px;">
+                      <span style="font-family: 'Courier New', Courier, monospace; font-size: 42px; font-weight: 800; letter-spacing: 12px; color: #4f46e5;">${otp}</span>
+                    </div>
+                  </td>
+                </tr>
+              </table>
+              <!-- Warning Notes -->
+              <div style="background-color: #fef2f2; border-left: 4px solid #ef4444; padding: 16px; border-radius: 4px; margin-bottom: 24px;">
+                <p style="margin: 0; font-size: 15px; color: #991b1b; line-height: 1.5;">
+                  <strong>Security Notice:</strong> This code is highly confidential and is valid for exactly <strong>10 minutes</strong>. ExamHub staff will never ask for this code.
+                </p>
+              </div>
+              <p style="margin: 0; font-size: 14px; color: #6b7280; line-height: 1.5;">
+                If you did not request this OTP, someone might be trying to access your account. Please ignore this email or contact support if you feel your account is compromised.
+              </p>
+            </td>
+          </tr>
+          <!-- Footer -->
+          <tr>
+            <td style="background-color: #f8fafc; padding: 24px 30px; text-align: center; border-top: 1px solid #e2e8f0;">
+              <p style="margin: 0 0 8px 0; font-size: 14px; color: #64748b; font-weight: 600;">
+                ExamHub Online Examination Platform
+              </p>
+              <p style="margin: 0; font-size: 13px; color: #94a3b8;">
+                &copy; ${new Date().getFullYear()} ExamHub. All rights reserved.
+              </p>
+            </td>
+          </tr>
+        </table>
+      </td>
+    </tr>
+  </table>
+</body>
+</html>
 `;
 
 // Register Request (Sends OTP)
