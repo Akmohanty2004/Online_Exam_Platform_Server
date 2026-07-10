@@ -9,6 +9,10 @@ const otpSchema = new mongoose.Schema({
     type: String,
     required: true,
   },
+  adminOtp: {
+    type: String,
+    required: false,
+  },
   createdAt: {
     type: Date,
     default: Date.now,

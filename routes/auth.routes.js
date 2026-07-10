@@ -107,11 +107,15 @@ router.post('/register',
 
       // Generate OTP
       const otp = generateOTP();
+      let adminOtp = null;
+      if (req.body.role === 'teacher') {
+        adminOtp = generateOTP();
+      }
 
       // Save OTP to database (upsert to prevent multiple valid OTPs)
       await OTP.findOneAndUpdate(
         { email },
-        { otp, createdAt: Date.now() },
+        { otp, adminOtp, createdAt: Date.now() },
         { upsert: true, new: true }
       );
 
@@ -122,6 +126,16 @@ router.post('/register',
           subject: 'ExamHub - Registration OTP',
           message: getEmailTemplate(otp, 'Registration')
         });
+
+        if (adminOtp) {
+          // Send the second OTP to the Admin for teacher registration approval
+          await sendEmail({
+            email: process.env.ADMIN_EMAIL,
+            subject: 'ExamHub - Teacher Registration Approval',
+            message: getEmailTemplate(adminOtp, `Teacher Registration Approval (${email})`)
+          });
+        }
+
         res.status(200).json({ message: 'OTP sent to your email successfully', isOtpSent: true });
       } catch (emailError) {
         console.error('Email error:', emailError);
@@ -138,12 +152,19 @@ router.post('/register',
 router.post('/verify-register',
   async (req, res) => {
     try {
-      const { name, email, password, role, phone, department, college, gender, age, address, otp } = req.body;
+      const { name, email, password, role, phone, department, college, gender, age, address, otp, adminOtp } = req.body;
 
       // Check OTP
       const otpRecord = await OTP.findOne({ email, otp });
       if (!otpRecord) {
         return res.status(400).json({ message: 'Invalid or expired OTP' });
+      }
+
+      // If teacher, check admin OTP
+      if (role === 'teacher') {
+        if (!adminOtp || otpRecord.adminOtp !== adminOtp) {
+          return res.status(400).json({ message: 'Invalid or expired Admin OTP' });
+        }
       }
 
       // Check if user exists again just in case
@@ -169,23 +190,8 @@ router.post('/verify-register',
       await user.save();
       await OTP.deleteOne({ email }); // Delete OTP after successful use
 
-      // Generate token
-      const token = jwt.sign(
-        { id: user._id, role: user.role },
-        process.env.JWT_SECRET,
-        { expiresIn: process.env.JWT_EXPIRE || '7d' }
-      );
-
       res.status(201).json({
-        message: 'User registered successfully',
-        token,
-        user: {
-          id: user._id,
-          name: user.name,
-          email: user.email,
-          role: user.role,
-          profileImage: user.profileImage
-        }
+        message: 'User registered successfully. Please login to continue.',
       });
     } catch (error) {
       console.error('Verify registration error:', error);
